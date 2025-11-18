@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>我的 AI 助手</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --accent: #2563eb;
+      --text: #0f172a;
+    }
+    html,body {
+      height:100%;
+      margin:0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, var(--bg), #eef2ff);
+      color:var(--text);
+    }
+    .app {
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .card {
+      width:100%;
+      max-width:1100px;
+      height:90vh;
+      border-radius:12px;
+      background:var(--panel);
+      box-shadow: 0 10px 30px rgba(2,6,23,0.12);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .header {
+      padding:18px 22px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      border-bottom:1px solid rgba(15,23,42,0.04);
+    }
+    .logo {
+      width:42px;
+      height:42px;
+      border-radius:8px;
+      background:linear-gradient(135deg,var(--accent),#7c3aed);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-weight:700;
+      font-size:18px;
+      box-shadow:0 4px 12px rgba(37,99,235,0.18);
+    }
+    .title {
+      font-size:18px;
+      font-weight:600;
+    }
+    .subtitle {
+      margin-left:auto;
+      color:#475569;
+      font-size:13px;
+    }
+    /* webchat container fills rest */
+    .webchat {
+      flex:1;
+      position:relative;
+    }
+    /* overlay to prompt token when missing */
+    .overlay {
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.8));
+      backdrop-filter: blur(4px);
+      z-index:50;
+      padding:20px;
+    }
+    .panel {
+      background:var(--panel);
+      border-radius:10px;
+      box-shadow: 0 8px 28px rgba(2,6,23,0.12);
+      padding:20px;
+      max-width:720px;
+      width:100%;
+      text-align:left;
+    }
+    .panel h3 { margin:0 0 8px 0; }
+    .panel p { margin:0 0 14px 0; color:#475569; font-size:14px; }
+    .row { display:flex; gap:8px; }
+    input[type="password"] {
+      flex:1;
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid #e6e9ef;
+      font-size:14px;
+    }
+    button {
+      background:var(--accent);
+      color:white;
+      border:none;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    footer.note { padding:10px 18px; font-size:13px; color:#64748b; text-align:center; }
+    @media (max-width:720px){
+      .card { height:100vh; border-radius:0; max-width:100%; }
+      .header { padding:12px; }
+      .logo { width:36px; height:36px; font-size:16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card" role="main">
+      <div class="header">
+        <div class="logo">AI</div>
+        <div>
+          <div class="title">你的 AI 助手</div>
+          <div class="subtitle">打开即可开始对话</div>
+        </div>
+        <div class="subtitle">Bot ID: 7555240676221681676</div>
+      </div>
+
+      <div class="webchat" id="webchat-root">
+        <!-- Coze WebChat will insert into this area -->
+        <div id="coze-root" style="position:absolute; inset:0;"></div>
+
+        <!-- overlay to ask for token if placeholder -->
+        <div id="token-overlay" class="overlay" style="display:none;">
+          <div class="panel">
+            <h3>需要你的 Coze Token（仅本机输入）</h3>
+            <p>为了安全起见，请不要把 token 提交到公开仓库。你可以把 token 粘贴到下面输入框（只会保存在当前页面会话）。</p>
+            <div class="row">
+              <input id="token-input" type="password" placeholder="在此粘贴你的 pat_xxx (不会上传到服务器)" />
+              <button id="token-ok">确定并启动</button>
+            </div>
+            <p style="margin-top:10px;">如果你想把 token 写入文件并直接部署，请在本地替换 index.html 里 token 的占位符 <code>pat_********</code>。</p>
+          </div>
+        </div>
+      </div>
+
+      <footer class="note">提示：第一次加载若未输入 token，请在弹窗中粘贴。token 不应上传到公开仓库。</footer>
+    </div>
+  </div>
+
+  <!-- Coze Chat SDK -->
+  <script src="https://sf-cdn.coze.com/obj/unpkg-va/flow-platform/chat-app-sdk/1.2.0-beta.6/libs/oversea/index.js"></script>
+
+  <script>
+    // Bot config (keep token as placeholder here)
+    const BOT_ID = '7555240676221681676';
+    let TOKEN = 'pat_********'; // <- placeholder. Do NOT commit real token to public repo.
+
+    // initialize chat client with given token
+    function startChat(token) {
+      try {
+        // remove existing iframe if re-initializing
+        const root = document.getElementById('coze-root');
+        root.innerHTML = '';
+        new CozeWebSDK.WebChatClient({
+          mount: '#coze-root',
+          config: {
+            bot_id: BOT_ID,
+          },
+          componentProps: {
+            title: '你的 AI 助手',
+            width: '100%',
+            height: '100%',
+            showHeader: true
+          },
+          auth: {
+            type: 'token',
+            token: token,
+            onRefreshToken: function() {
+              // If your token rotates, you can implement fetch here.
+              return token;
+            }
+          }
+        });
+      } catch (err) {
+        console.error('启动 Chat SDK 失败：', err);
+        alert('Chat SDK 启动失败，请查看控制台错误。');
+      }
+    }
+
+    // detect placeholder token and prompt user to paste token locally
+    window.addEventListener('load', function(){
+      const overlay = document.getElementById('token-overlay');
+      const input = document.getElementById('token-input');
+      const ok = document.getElementById('token-ok');
+
+      // if TOKEN contains '*' treat as missing
+      if (TOKEN.includes('*')) {
+        overlay.style.display = 'flex';
+        ok.addEventListener('click', function(){
+          const t = input.value.trim();
+          if (!t || !t.startsWith('pat_')) {
+            alert('请粘贴有效的 Coze PAT（以 pat_ 开头）');
+            return;
+          }
+          overlay.style.display = 'none';
+          TOKEN = t;
+          startChat(TOKEN);
+        });
+        // also allow Enter key
+        input.addEventListener('keydown', function(e){
+          if (e.key === 'Enter') ok.click();
+        });
+      } else {
+        // token present in file (not recommended)
+        startChat(TOKEN);
+      }
+    });
+  </script>
+</body>
+</html>
